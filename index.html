@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Balancing Tool</title>
+
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  padding: 20px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+/* ✅ Better balanced layout */
+.container {
+  display: flex;
+  gap: 20px;              /* smaller gap (was too big) */
+  align-items: flex-start;
+}
+
+/* ✅ Control column widths */
+.left {
+  flex: 1.2;              /* slightly smaller */
+}
+
+.center {
+  flex: 1;                /* tighter content */
+}
+
+/* ✅ Images */
+.left img {
+  width: 100%;
+  max-width: 600px;       /* keeps them readable */
+  margin-bottom: 15px;
+}
+
+/* Inputs */
+input, select {
+  padding: 8px;
+  margin-top: 5px;
+  width: 250px;
+}
+
+/* Table */
+table {
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+td, th {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+/* Info box */
+.info-box {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-left: 5px solid #0078D4;
+}
+
+.note {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Balancing Table Search</h2>
+
+<div class="container">
+
+  <!-- LEFT: Images stacked -->
+  <div class="left">
+    <img src="SVUBB2_Balaning_rings.jpg" alt="Balancing Rings">
+    <img src="SVUBB2_Boring_Bar_Code_2.jpg" alt="Bar Code Location">
+  </div>
+
+  <!-- CENTER: Inputs + Results -->
+  <div class="center">
+
+    <!-- ✅ File selection first -->
+    <div id="status">Loading data...</div>
+
+    <br><br>
+
+    <label><strong>Machined Diameter</strong></label><br>
+    <input type="number" id="diameterInput">
+
+    <br><br>
+
+    <label><strong>Unit</strong></label><br>
+    <select id="unitSelect">
+      <option value="mm">mm</option>
+      <option value="inch">inch</option>
+    </select>
+
+    <div id="results" style="margin-top:20px;"></div>
+
+    <!-- ✅ Improved explanation -->
+    <div class="info-box">
+      <strong>Why should I check the bar code?</strong><br><br>
+      Because boring bars may cover overlapping diameter ranges. Since different bars have different mass and geometry, the required balancing adjustment can vary significantly. Using the incorrect bar code may lead to an improper balance setup, resulting in vibration and reduced machining performance.
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+let data = [
+["Diameter","Code 1","Code 2","q1","Side 1","q2","Side 2"],
+[6,"R81361","R81383",67.5,"L",67.5,"L"],
+[6.1,"R81361","R81383",62.5,"L",62.5,"L"],
+[6.2,"R81361","R81383",57.5,"L",57.5,"L"],
+[6.3,"R81361","R81383",55,"L",55,"L"],
+[6.4,"R81361","R81383",50,"L",50,"L"],
+[6.5,"R81361","R81383",47.5,"L",47.5,"L"],
+[6.6,"R81361","R81383",45,"L",45,"L"],
+[6.7,"R81361","R81383",40,"L",40,"L"],
+[6.8,"R81361","R81383",37.5,"L",37.5,"L"],
+[6.9,"R81361","R81383",35,"L",35,"L"],
+[7,"R81361","R81383",32.5,"L",32.5,"L"],
+[7.1,"R81361","R81383",30,"L",30,"L"],
+[7.2,"R81361","R81383",27.5,"L",27.5,"L"],
+[7.3,"R81361","R81383",25,"L",25,"L"],
+[7.4,"R81361","R81383",22.5,"L",22.5,"L"],
+[7.5,"R81361","R81383",20,"L",20,"L"],
+[7.6,"R81361","R81383",17.5,"L",17.5,"L"],
+[7.7,"R81361","R81383",15,"L",15,"L"],
+[7.8,"R81361","R81383",12.5,"L",12.5,"L"],
+[7.9,"R81361","R81383",10,"L",12.5,"L"],
+[8,"R81361","R81383",7.5,"L",10,"L"],
+[8.1,"R81361","R81383",5,"L",7.5,"L"],
+[8.2,"R81361","R81383",2.5,"L",5,"L"],
+[8.3,"R81361","R81383",2.5,"R",5,"L"],
+[8.4,"R81361","R81383",10,"L",12.5,"R"],
+[8.5,"R81361","R81383",0,"R",5,"R"],
+[8.6,"R81361","R81383",2.5,"R",7.5,"R"],
+[8.7,"R81361","R81383",7.5,"R",7.5,"R"],
+[8.8,"R81361","R81383",10,"R",10,"R"],
+[8.9,"R81361","R81383",12.5,"R",12.5,"R"],
+[9,"R81361","R81383",12.5,"R",15,"R"],
+[9.1,"R81361","R81383",15,"R",17.5,"R"],
+[9.2,"R81361","R81383",17.5,"R",20,"R"],
+[9.3,"R81361","R81383",20,"R",22.5,"R"],
+[9.4,"R81361","R81383",22.5,"R",25,"R"],
+[9.5,"R81361","R81383",25,"R",27.5,"R"],
+[9.5,"R81361","R81383",25,"R",27.5,"R"],
+
+// ===== PART 2 START =====
+
+[8.5,"R81363","R81384",67.5,"L",67.5,"L"],
+[8.6,"R81363","R81384",62.5,"L",62.5,"L"],
+[8.7,"R81363","R81384",57.5,"L",57.5,"L"],
+[8.8,"R81363","R81384",52.5,"L",55,"L"],
+[8.9,"R81363","R81384",50,"L",50,"L"],
+[9.0,"R81363","R81384",47.5,"L",47.5,"L"],
+[9.1,"R81363","R81384",42.5,"L",45,"L"],
+[9.2,"R81363","R81384",40,"L",40,"L"],
+[9.3,"R81363","R81384",37.5,"L",37.5,"L"],
+[9.4,"R81363","R81384",35,"L",35,"L"],
+[9.5,"R81363","R81384",30,"L",32.5,"L"],
+[9.6,"R81363","R81384",27.5,"L",30,"L"],
+[9.7,"R81363","R81384",25,"L",27.5,"L"],
+[9.8,"R81363","R81384",22.5,"L",25,"L"],
+[9.9,"R81363","R81384",20,"L",22.5,"L"],
+[10.0,"R81363","R81384",17.5,"L",20,"L"],
+[10.1,"R81363","R81384",15,"L",17.5,"L"],
+[10.2,"R81363","R81384",12.5,"L",15,"L"],
+[10.3,"R81363","R81384",10,"L",15,"L"],
+[10.4,"R81363","R81384",7.5,"L",12.5,"L"],
+[10.5,"R81363","R81384",5,"L",10,"L"],
+[10.6,"R81363","R81384",0,"L",10,"L"],
+[10.7,"R81363","R81384",5,"R",10,"L"],
+[10.8,"R81363","R81384",45,"R",45,"L"],
+[10.9,"R81363","R81384",10,"L",15,"R"],
+[11.0,"R81363","R81384",2.5,"L",10,"R"],
+[11.1,"R81363","R81384",2.5,"R",10,"R"],
+[11.2,"R81363","R81384",5,"R",12.5,"R"],
+[11.3,"R81363","R81384",10,"R",12.5,"R"],
+[11.4,"R81363","R81384",12.5,"R",15,"R"],
+[11.5,"R81363","R81384",15,"R",17.5,"R"],
+[11.6,"R81363","R81384",17.5,"R",20,"R"],
+[11.7,"R81363","R81384",20,"R",22.5,"R"],
+[11.8,"R81363","R81384",22.5,"R",25,"R"],
+[11.9,"R81363","R81384",25,"R",27.5,"R"],
+[12.0,"R81363","R81384",27.5,"R",30,"R"],
+[11.0,"R81364","R81385",67.5,"L",70,"L"],
+[11.1,"R81364","R81385",60,"L",62.5,"L"],
+[11.2,"R81364","R81385",57.5,"L",60,"L"],
+[11.3,"R81364","R81385",52.5,"L",55,"L"],
+[11.4,"R81364","R81385",47.5,"L",50,"L"],
+[11.5,"R81364","R81385",45,"L",47.5,"L"],
+[11.6,"R81364","R81385",42.5,"L",45,"L"],
+[11.7,"R81364","R81385",37.5,"L",42.5,"L"],
+[11.8,"R81364","R81385",35,"L",37.5,"L"],
+[11.9,"R81364","R81385",32.5,"L",35,"L"],
+[12.0,"R81364","R81385",30,"L",32.5,"L"],
+[12.1,"R81364","R81385",27.5,"L",30,"L"],
+[12.2,"R81364","R81385",25,"L",27.5,"L"],
+[12.3,"R81364","R81385",22.5,"L",25,"L"],
+[12.4,"R81364","R81385",17.5,"L",25,"L"],
+[12.5,"R81364","R81385",15,"L",22.5,"L"],
+[12.6,"R81364","R81385",12.5,"L",20,"L"],
+[12.7,"R81364","R81385",10,"L",17.5,"L"],
+[12.8,"R81364","R81385",5,"L",17.5,"L"],
+[12.9,"R81364","R81385",2.5,"L",15,"L"],
+[13.0,"R81364","R81385",2.5,"R",15,"L"],
+[13.1,"R81364","R81385",10,"R",17.5,"L"],
+[13.2,"R81364","R81385",25,"R",30,"L"],
+[13.3,"R81364","R81385",62.5,"L",65,"R"],
+[13.4,"R81364","R81385",17.5,"L",22.5,"R"],
+[13.5,"R81364","R81385",5,"L",15,"R"],
+[13.6,"R81364","R81385",0,"R",15,"R"],
+[13.7,"R81364","R81385",5,"R",15,"R"],
+[13.8,"R81364","R81385",7.5,"R",17.5,"R"],
+[13.9,"R81364","R81385",10,"R",20,"R"],
+[14.0,"R81364","R81385",15,"R",20,"R"],
+[14.1,"R81364","R81385",17.5,"R",22.5,"R"],
+[14.2,"R81364","R81385",20,"R",25,"R"],
+[14.3,"R81364","R81385",22.5,"R",27.5,"R"],
+[14.4,"R81364","R81385",25,"R",30,"R"],
+[14.5,"R81364","R81385",27.5,"R",32.5,"R"]
+// ===== END DATA =====
+];
+
+
+window.onload = function() {
+  document.getElementById("status").innerText =
+    "✅ Data ready — enter diameter";
+};
+
+
+// ✅ Search logic
+function searchData() {
+
+//console.log("Search triggered");
+//console.log(data[1]);
+//console.log("Input value:", document.getElementById('diameterInput').value)
+
+  if (data.length === 0) return;
+
+  let rawValue = document.getElementById('diameterInput').value;
+  let value = parseFloat(rawValue);
+  const unit = document.getElementById('unitSelect').value;
+
+  if (rawValue === "" || isNaN(value)) {
+    document.getElementById('results').innerHTML = "";
+    return;
+  }
+
+  // Convert inch → mm
+  if (unit === "inch") {
+    value = value * 25.4;
+  }
+
+  // Round to 1 decimal
+  value = Math.round(value * 10) / 10;
+
+//console.log("Before filter");
+
+const results = data.filter((row, index) => {
+  if (index === 0) return false;
+
+  const diameterRaw = Number(row[0]);
+  const diameter = Math.round(diameterRaw * 10) / 10;
+
+  return diameter === value;
+});
+
+//console.log("After filter", results);
+
+//console.log("Calling displayResults");
+
+  displayResults(results, value);
+}
+
+
+// Display results
+function displayResults(rows, value) {
+  const container = document.getElementById('results');
+
+console.log("displayResults called", rows.length)
+
+  if (rows.length === 0) {
+    container.innerHTML = `<p>No results for diameter ${value}</p>`;
+    return;
+  }
+
+  let html = `
+    <p><strong>${rows.length}</strong> result(s) for diameter ${value}</p>
+    <table>
+      <tr>
+        <th>Boring Bar Code</th>
+        <th>θ1</th>
+        <th>θ2</th>
+      </tr>
+  `;
+
+  rows.forEach(row => {
+
+    // ✅ Merge B + C with "OR"
+    const code1 = row[1] ?? "";
+    const code2 = row[2] ?? "";
+
+    let combinedCode = "";
+
+    if (code1 && code2) {
+      combinedCode = `${code1} OR ${code2}`;
+    } else {
+      combinedCode = code1 || code2;
+    }
+
+    // ✅ Merge D + E → θ1
+    const theta1 = `${row[3] ?? ""} ${row[4] ?? ""}`.trim();
+
+    // ✅ Merge F + G → θ2
+    const theta2 = `${row[5] ?? ""} ${row[6] ?? ""}`.trim();
+
+    html += `
+      <tr>
+        <td>${combinedCode}</td>
+        <td>${theta1}</td>
+        <td>${theta2}</td>
+      </tr>
+    `;
+  });
+
+  html += "</table>";
+  container.innerHTML = html;
+}
+
+document.getElementById('diameterInput').addEventListener('input', searchData);
+
+</script>
+
+</body>
+</html>
